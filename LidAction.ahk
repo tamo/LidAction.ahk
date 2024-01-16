@@ -201,8 +201,8 @@ addradiogroups(mygui) {
 ; update curvalues and check radio accordingly
 checkradio(radiogroups, guids, &current) {
     global acdcs
-    current := getcurvalues(guids)
 
+    current := getcurvalues(guids)
     for (acdcindex, acdc in acdcs) {
         radiogroups[acdcindex][current[acdcindex] + 1].Value := 1
     }
