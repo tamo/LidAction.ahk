@@ -1,45 +1,34 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 #Warn
-
 ; https://www.autohotkey.com/boards/viewtopic.php?p=485503#p485503
 #Include StdoutToVar.ahk
-
-acdcs := ["AC", "DC"]
-
 ; translatable messages
-m := {
-    acdcs: ["AC⚡", "DC🔋", "Both"]
-    , actions: ["Nothing", "Sleep", "Hibernate", "Shutdown"]
-    , progname: "LidAction"
-    , exit: "Exit"
-    , opengui: "Open GUI"
-    , apply: "Apply"
-    , ok: "OK"
-}
-/* m := {
-    acdcs: ["電源あり", "バッテリ", "両方とも"]
-    , actions: ["何もしない", "スリープ", "休止", "シャットダウン"]
-    , progname: "フタ閉じ電源設定"
-    , exit: "終了"
-    , opengui: "GUI起動"
-    , apply: "適用"
-    , ok: "OK"
-} */
-A_IconTip := m.progname
+#Include LidActionMsg.ahk
+
+; === CONFIG ===
+m := messages.en
+; m := messages.ja
+
+; this is used as other icons too
 TraySetIcon("shell32.dll", -284)
 
+; events on which the tray icon shows the menu
+triggers := Map(
+    0x205, "right click"
+    ; , 0x200, "hover",
+    ; , 0x202, "click - will disable double-click action",
+)
+; ==============
+
+; global variables
+acdcs := ["AC", "DC"]
 guids := getguids()
 
 ; the first character of the filename decides how it works
 ; !G will stay in the tray (useful for startup)
 if (StrUpper(SubStr(A_ScriptName, 1, 1) != "G")) {
-    ; events on which the tray icon shows the menu
-    triggers := Map(
-        0x205, "right click"
-        ; , 0x200, "hover",
-        ; , 0x202, "click - will disable double-click action",
-    )
+    A_IconTip := m.progname
     OnMessage(0x404, showmenu.Bind(guids)) ; tray icon
     Persistent()
     return
