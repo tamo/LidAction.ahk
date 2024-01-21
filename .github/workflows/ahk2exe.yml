@@ -2,12 +2,6 @@ name: Ahk2Exe
 
 on: [push]
 
-env:
-    ahkver: 2.0.11
-    a2ever: 1.1.37.01c
-    src: LidAction.ahk
-    base: 64
-
 jobs:
   build:
     runs-on: windows-latest
@@ -16,31 +10,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Fetch AutoHotkey
-      run: |
-        curl -LJo ahk.zip https://github.com/AutoHotkey/AutoHotkey/releases/download/v${{ env.ahkver }}/AutoHotkey_${{ env.ahkver }}.zip
-        7z x ahk.zip
-        ls
+    - name: Ahk2Exe (64bit)
+      uses: tamo/action-Ahk2Exe@main
+      with:
+        base: AutoHotkey64.exe
+        src: LidAction.ahk
 
-    - name: Fetch Ahk2Exe
-      run: |
-        curl -LJo a2e.zip https://github.com/AutoHotkey/Ahk2Exe/releases/download/Ahk2Exe${{ env.a2ever }}/Ahk2Exe${{ env.a2ever }}.zip
-        7z x a2e.zip
-        ls
-
-    - name: Run Ahk2Exe
-      run: >
-        ./Ahk2Exe.exe
-        /in ${{ env.src }}
-        /out ${{ env.src }}.${{ env.base }}bit.exe
-        /base AutoHotkey${{ env.base }}.exe
-
-    - run: ls ${{ env.src }}.${{ env.base}}bit.exe
+    - run: ls LidAction.exe
 
     - name: Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: ${{ env.src }}.${{ env.base }}bit.exe
+        files: LidAction.exe
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
