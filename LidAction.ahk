@@ -5,21 +5,17 @@
 #Include StdoutToVar.ahk
 ; translatable messages
 #Include LidActionMsg.ahk
-
-; === CONFIG ===
-m := messages.en
-; m := messages.ja
-
 ; this is used as other icons too
 TraySetIcon("shell32.dll", -284)
 
+#Include LidActionCfg.ahk
+m := IsSet(m) ? m : messages.en
 ; events on which the tray icon shows the menu
-triggers := Map(
+triggers := IsSet(triggers) ? triggers : Map(
     0x205, "right click"
-    ; , 0x200, "hover",
-    ; , 0x202, "click - will disable double-click action",
+    ; , 0x200, "hover"
+    ; , 0x202, "click - will disable double-click action"
 )
-; ==============
 
 ; global variables
 acdcs := ["AC", "DC"]
