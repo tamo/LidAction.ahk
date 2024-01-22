@@ -21,7 +21,10 @@ jobs:
 
     - run: ls LidAction.exe
 
-    - run: mv LidActionCfg-ja-hover.ahk LidActionCfg.ahk
+    - name: Configure ja-hover
+      run: |
+        rm LidActionCfg.ahk
+        mv LidActionCfg-ja-hover.ahk LidActionCfg.ahk
 
     - name: Ahk2Exe (64bit) (ja) (hover)
       uses: tamo/action-Ahk2Exe@main
