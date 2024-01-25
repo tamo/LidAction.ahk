@@ -1,6 +1,11 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 #Warn
+
+;@Ahk2Exe-SetName        LidAction.ahk
+;@Ahk2Exe-SetVersion     0.1
+;@Ahk2Exe-SetDescription LidAction.ahk - powercfg wrapper
+
 ; https://www.autohotkey.com/boards/viewtopic.php?p=485503#p485503
 #Include StdoutToVar.ahk
 ; translatable messages
