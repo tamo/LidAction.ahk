@@ -3,7 +3,7 @@
 #Warn
 
 ;@Ahk2Exe-SetName        LidAction.ahk
-;@Ahk2Exe-SetVersion     0.1
+;@Ahk2Exe-SetVersion     0.2
 ;@Ahk2Exe-SetDescription LidAction.ahk - powercfg wrapper
 
 ; https://www.autohotkey.com/boards/viewtopic.php?p=485503#p485503
@@ -22,118 +22,158 @@ triggers := IsSet(triggers) ? triggers : Map(
     ; , 0x202, "click - will disable double-click action"
 )
 
-; global variables
+; global variable
 acdcs := ["AC", "DC"]
-guids := getguids()
 
 ; the first character of the filename decides how it works
 ; !G will stay in the tray (useful for startup)
 if (StrUpper(SubStr(A_ScriptName, 1, 1) != "G")) {
     A_IconTip := m.progname
-    OnMessage(0x404, showmenu.Bind(guids)) ; tray icon
+    OnMessage(0x404, showmenu) ; tray icon
     Persistent()
     return
 }
 ; if the filename starts with G, show one-time GUI
 ; without a tray icon
 A_IconHidden := true
-opengui(guids)
+opengui()
 return
 
 
 ; returns an object
 ; note that powercfg messages are localized
 getguids() {
-    powercfg := StdoutToVar("powercfg /query scheme_current sub_buttons")
+    buttonslines := getpcqlines("scheme_current sub_buttons", 4)
+    videolines := getpcqlines("scheme_current sub_video videoidle", 12)
+    sleeplines := getpcqlines("scheme_current sub_sleep standbyidle", 12)
+    hibernatelines := getpcqlines("scheme_current sub_sleep hibernateidle", 12)
+
+    ; https://learn.microsoft.com/windows-hardware/customize/power-settings/power-button-and-lid-settings-lid-switch-close-action
+    lidaction := "5ca83367-6e45-459f-a27b-476b1d01c936" ; not available from powercfg
+
+    return {
+        scheme_current: getguid(buttonslines[1])
+        , sub_buttons: getguid(buttonslines[3])
+        , lidaction: lidaction
+        , sub_video: getguid(videolines[3])
+        , videoidle: getguid(videolines[5])
+        , sub_sleep: getguid(sleeplines[3])
+        , standbyidle: getguid(sleeplines[5])
+        , hibernateidle: getguid(hibernatelines[5])
+    }
+}
+
+getpcqlines(args, min) {
+    powercfg := StdoutToVar("powercfg /query " . args)
     if (powercfg.ExitCode) {
         MsgBox("powercfg failed:`r`n" . powercfg.Output)
         ExitApp()
     }
     lines := StrSplit(powercfg.Output, "`n", " `r")
-    if (lines.Length < 4) {
+    if (lines.Length < min) {
         MsgBox("powercfg incompatible:`r`n" . powercfg.Output)
         ExitApp()
     }
-
-    guidregex := " ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) "
-    if ( not RegExMatch(lines[1], guidregex, &scheme_current)) {
-        MsgBox("scheme_current not found:`r`n" . lines[1])
-        ExitApp()
-    }
-    if ( not RegExMatch(lines[3], guidregex, &sub_buttons)) {
-        MsgBox("sub_buttons not found:`r`n" . lines[3])
-        ExitApp()
-    }
-
-    return {
-        scheme_current: scheme_current[1]
-        , sub_buttons: sub_buttons[1]
-            ; https://learn.microsoft.com/windows-hardware/customize/power-settings/power-button-and-lid-settings-lid-switch-close-action
-        , lidaction: "5ca83367-6e45-459f-a27b-476b1d01c936" ; not available from powercfg
-    }
+    return lines
 }
 
+getguid(line) {
+    static guidregex := " ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) "
+
+    if ( not RegExMatch(line, guidregex, &guid)) {
+        MsgBox("guid not found:`r`n" . line)
+        ExitApp()
+    }
+    return guid[1]
+}
+
+; returns a map (1: ACValue, 2: DCValue, 3: BothValue or -1, guid*: guid)
 ; admin priv is not needed here
-getcurvalues(guids) {
+getcurvalues(guid1, guid2, guid3, max := 0xffffffff) {
     global acdcs
 
     regpath := Format(
-        "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\{}\{}\{}",
-        guids.scheme_current,
-        guids.sub_buttons,
-        guids.lidaction
+        "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\{}\{}\{}"
+        ,guid1, guid2, guid3
     )
 
-    current := Array()
+    current := Map(
+        "guid1", guid1
+        , "guid2", guid2
+        , "guid3", guid3
+    )
     for (acdcindex, acdc in acdcs) {
-        current.Push(RegRead(regpath, acdc . "SettingIndex"))
-        if (current[acdcindex] < 0 or 3 < current[acdcindex]) {
-            MsgBox(acdc . "SettingIndex out of range")
+        current[acdcindex] := RegRead(regpath, acdc . "SettingIndex")
+        if (current[acdcindex] < 0 or max < current[acdcindex]) {
+            MsgBox(
+                Format(
+                    "{}SettingIndex out of range: {}`r`n{}/{}/{}"
+                    , acdc, current[acdcindex], guid1, guid2, guid3
+                )
+            )
             ExitApp()
         }
     }
-    current.Push(current[1] = current[2] ? current[1] : -1)
+    current[3] := (current[1] = current[2] ? current[1] : -1)
     return current
 }
 
 ; on tray icon events
-showmenu(guids, wparam, lparam, *) {
+showmenu(wparam, lparam, *) {
     global triggers, m
 
     if (lparam = 0x203) { ; double-click
-        opengui(guids)
+        opengui()
         return 1 ; consumed
     }
     else if ( not triggers.Has(lparam)) {
         return 0 ; ignored
     }
 
-    current := getcurvalues(guids)
+    guids := getguids()
+    curlid := getcurvalues(guids.scheme_current, guids.sub_buttons, guids.lidaction, 3)
+    curvideo := getcurvalues(guids.scheme_current, guids.sub_video, guids.videoidle)
+    curstand := getcurvalues(guids.scheme_current, guids.sub_sleep, guids.standbyidle)
+    curhiber := getcurvalues(guids.scheme_current, guids.sub_sleep, guids.hibernateidle)
 
     mymenu := Menu()
     for (acdcindex, acdc in m.acdcs) {
+        if (acdcindex < 3) {
+            mymenu.Add(
+                idlename(m.videoidle, acdc, curvideo[acdcindex])
+                , idlemenu(acdcindex, curvideo)
+                , "Break"
+            )
+            mymenu.Add(
+                idlename(m.standbyidle, acdc, curstand[acdcindex])
+                , idlemenu(acdcindex, curstand)
+            )
+            mymenu.Add(
+                idlename(m.hibernateidle, acdc, curhiber[acdcindex])
+                , idlemenu(acdcindex, curhiber)
+            )
+            mymenu.Add()
+        } else {
+            mymenu.Add(m.exit, (*) => ExitApp(), "Break")
+            mymenu.Add(m.allnever, (*) => disableall([curlid, curvideo, curstand, curhiber]))
+            mymenu.Add(m.progname, (*) => opengui()), mymenu.Default := m.progname
+            mymenu.Add()
+        }
         for (actionindex, action in m.actions) {
             itemname := Format("{} {}", acdc, action)
             mymenu.Add(
                 itemname
-                , applysettings.Bind({
+                , applyacdc.Bind({
                     ; bitwise-and for the "both" (acdcindex=3) case
                     AC: acdcindex & 1 ? actionindex : 0
                     , DC: acdcindex & 2 ? actionindex : 0
                 }
-                    , guids
+                    , curlid
                 )
-                , actionindex = 1 ? "Break" : ""
             )
-            if (actionindex = current[acdcindex] + 1) {
+            if (actionindex = curlid[acdcindex] + 1) {
                 mymenu.Check(itemname)
             }
-        }
-        mymenu.Add()
-        switch (acdcindex) {
-            case (1): mymenu.Add(m.progname, (*) => true), mymenu.Disable(m.progname)
-            case (2): mymenu.Add(m.exit, (*) => ExitApp())
-            case (3): mymenu.Add(m.opengui, (*) => opengui(guids)), mymenu.Default := m.opengui
         }
     }
 
@@ -141,86 +181,194 @@ showmenu(guids, wparam, lparam, *) {
     return 1 ; consumed
 }
 
+idlename(fmt, acdc, sec) {
+    return Format(fmt, acdc, Floor(sec / 3600), Round(Mod(sec, 3600) / 60))
+}
+
+idlemenu(acdcindex, current) {
+    global m
+
+    submenu := Menu()
+    lens := [[m.never, 0]]
+    for (minute in [1, 2, 3, 5, 10, 15, 20, 25, 30, 45]) {
+        lens.Push([Format(m.minutesfmt, minute), minute * 60])
+    }
+    for (hour in [1, 2, 3, 4, 5]) {
+        lens.Push([Format(m.hoursfmt, hour), hour * 3600])
+    }
+    for (len in lens) {
+        submenu.Add(len[1], applysetting.Bind(
+            acdcindex, current, len[2]
+        ))
+    }
+    return submenu
+}
+
+disableall(all) {
+    for (c in all) {
+        applyacdc({AC: 1, DC: 1}, c) ; 1 will be 0 later
+    }
+}
+
 ; can be called from menu, so the last parameter is a star
-applysettings(gvalues, guids, *) {
+applyacdc(gvalues, c, *) {
     global acdcs
 
-    cmd := "cmd.exe /c "
     for (acdcindex, acdc in acdcs) {
         if (gvalues.%acdc%) {
-            cmd .= Format(
-                "powercfg /set{}valueindex {} {} {} {} && "
-                , acdc
-                , guids.scheme_current
-                , guids.sub_buttons
-                , guids.lidaction
-                , gvalues.%acdc% -1
-            )
+            applysetting(acdcindex, c, gvalues.%acdc% - 1)
         }
     }
-    cmd .= "powercfg /setactive " . guids.scheme_current
+}
 
+applysetting(acdcindex, c, value, *) {
+    global acdcs
+
+    cmd := Format(
+        "cmd.exe /c powercfg /set{}valueindex {} {} {} {}"
+        , acdcs[acdcindex], c["guid1"], c["guid2"], c["guid3"], value
+    )
+    setactive(cmd, c["guid1"])
+}
+
+setactive(cmd, scheme) {
+    cmd .= " && powercfg /setactive " . scheme
     result := StdoutToVar(cmd)
     if (result.ExitCode) {
         MsgBox(Format(
-            "powercfg failed: {}`r`n{}"
+            "powercfg failed: {}`r`n{}`r`n`r`n{}"
             , result.ExitCode
+            , cmd
             , result.Output
         ))
     }
 }
 
-opengui(guids) {
+opengui() {
     global m
+
+    guids := getguids()
 
     mygui := Gui(, m.progname)
     radiogroups := addradiogroups(mygui)
-    checkradio(radiogroups, guids, &curvalues)
-    addbuttons(mygui, guids, radiogroups, &curvalues)
+
+    updategui(radiogroups, guids, &curlid, &curvideo, &curstand, &curhiber)
+
+    mygui.AddButton("x200 y+40 w80", m.apply)
+        .OnEvent("Click", (*) => (
+            gvalues := mygui.Submit(false)
+            , applyacdc(gvalues, curlid)
+            , applyupdowns(gvalues, curvideo, "video")
+            , applyupdowns(gvalues, curstand, "stand")
+            , applyupdowns(gvalues, curhiber, "hiber")
+            , updategui(radiogroups, guids, &curlid, &curvideo, &curstand, &curhiber)
+        ))
+    mygui.AddButton("yp w80", m.ok)
+        .OnEvent("Click", (*) => (
+            gvalues := mygui.Submit(false)
+            , applyacdc(gvalues, curlid)
+            , applyupdowns(gvalues, curvideo, "video")
+            , applyupdowns(gvalues, curstand, "stand")
+            , applyupdowns(gvalues, curhiber, "hiber")
+            , mygui.Destroy()
+        ))
     mygui.Show()
+}
+
+applyupdowns(gvalues, c, cname) {
+    global acdcs
+
+    data := {}
+    for (acdcindex, acdc in acdcs) {
+        s := 1
+        for (k, v in Map(
+            "d", 24 * 60 * 60
+            , "h", 60 * 60
+            , "m", 60
+        )) {
+            s += gvalues.%acdc%%cname%%k% * v
+        }
+        applysetting(acdcindex, c, s)
+    }
 }
 
 addradiogroups(mygui) {
     global acdcs, m
 
     groups := []
+    lens := {}
     for (acdcindex, acdc in acdcs) {
-        mygui.AddText("ym w110", m.acdcs[acdcindex])
+        top := mygui.AddText("ym w280 center", m.acdcs[acdcindex])
+        top.GetPos(&x, &y, &w, &h)
         groups.Push([])
         for (actionindex, action in m.actions) {
             groups[acdcindex].Push(
                 mygui.AddRadio(
-                    "r1.5" . (actionindex = 1 ? " Group v" . acdc : "")
+                    Format(
+                        "x{} y{} r1.5 {}"
+                        , x
+                        , y + (h * 1.5 + mygui.MarginY) * actionindex
+                        , actionindex = 1 ? " Group v" . acdc : ""
+                    )
                     , action
                 )
             )
+            switch (actionindex) {
+                case 2: addedit(mygui, x + 80, lens, acdc, "stand")
+                case 3: addedit(mygui, x + 80, lens, acdc, "hiber")
+            }
         }
+        mygui.AddText("xp y+30", m.vidoff)
+        addedit(mygui, x + 80, lens, acdc, "video")
     }
+    groups.Push(lens)
     return groups
 }
 
-; update curvalues and check radio accordingly
-checkradio(radiogroups, guids, &current) {
+addedit(mygui, x, o, acdc, c) {
+    global m
+
+    mygui.AddEdit(Format("yp x{} w40 right", x))
+    o.%acdc%%c%d := mygui.AddUpDown(Format("left range0-99 v{}{}d", acdc, c))
+    mygui.AddText("yp", m.days)
+    mygui.AddEdit("yp w40 right")
+    o.%acdc%%c%h := mygui.AddUpDown(Format("left range0-23 v{}{}h", acdc, c))
+    mygui.AddText("yp", m.hours)
+    mygui.AddEdit("yp w40 right")
+    o.%acdc%%c%m := mygui.AddUpDown(Format("left range0-59 v{}{}m", acdc, c))
+    mygui.AddText("yp", m.minutes)
+}
+
+; updates curvalues, checks radios and inputs edits accordingly
+updategui(radiogroups, guids, &curlid, &curvideo, &curstand, &curhiber) {
     global acdcs
 
-    current := getcurvalues(guids)
+    curlid := getcurvalues(guids.scheme_current, guids.sub_buttons, guids.lidaction, 3)
+    curvideo := getcurvalues(guids.scheme_current, guids.sub_video, guids.videoidle)
+    curstand := getcurvalues(guids.scheme_current, guids.sub_sleep, guids.standbyidle)
+    curhiber := getcurvalues(guids.scheme_current, guids.sub_sleep, guids.hibernateidle)
+    o := radiogroups[3]
+
     for (acdcindex, acdc in acdcs) {
-        radiogroups[acdcindex][current[acdcindex] + 1].Value := 1
+        radiogroups[acdcindex][curlid[acdcindex] + 1].Value := 1
+        for (c in ["video", "stand", "hiber"]) {
+            dhm := getdhm(cur%c%[acdcindex])
+            o.%acdc%%c%d.Value := dhm.d
+            o.%acdc%%c%h.Value := dhm.h
+            o.%acdc%%c%m.Value := dhm.m
+        }
     }
 }
 
-; attach fat-arrow funcs to click events
-addbuttons(mygui, guids, radiogroups, &current) {
-    global m
-
-    mygui.AddButton("x80 w80", m.apply)
-        .OnEvent("Click", (*) => (
-            applysettings(mygui.Submit(false), guids)
-            , checkradio(radiogroups, guids, &current)
-        ))
-    mygui.AddButton("xp+90 w80", m.ok)
-        .OnEvent("Click", (*) => (
-            applysettings(mygui.Submit(false), guids)
-            , mygui.Destroy()
-        ))
+getdhm(secs) {
+    days := Floor(secs / (24 * 60 * 60))
+    secs -= days * (24 * 60 * 60)
+    hours := Floor(secs / (60 * 60))
+    secs -= hours * (60 * 60)
+    minutes := Round(secs / 60)
+    return {
+        d: days
+        , h: hours
+        , m: minutes
+    }
 }
