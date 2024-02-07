@@ -171,8 +171,8 @@ showmenu(wparam, lparam, *) {
                 itemname
                 , applyacdc.Bind({
                     ; bitwise-and for the "both" (acdcindex=3) case
-                    AC: acdcindex & 1 ? actionindex : 0
-                    , DC: acdcindex & 2 ? actionindex : 0
+                    AC: (acdcindex & 1 ? actionindex : 0) -1
+                    , DC: (acdcindex & 2 ? actionindex : 0) -1
                 }
                     , curlid
                 )
@@ -212,7 +212,7 @@ idlemenu(acdcindex, current) {
 
 disableall(all) {
     for (c in all) {
-        applyacdc({AC: 1, DC: 1}, c) ; 1 will be 0 later
+        applyacdc({AC: 0, DC: 0}, c)
     }
 }
 
@@ -224,8 +224,8 @@ applyacdc(gvalues, c, *) {
         return
     }
     for (acdcindex, acdc in acdcs) {
-        if (gvalues.%acdc%) {
-            applysetting(acdcindex, c, gvalues.%acdc% - 1)
+        if (gvalues.%acdc% >= 0) {
+            applysetting(acdcindex, c, gvalues.%acdc%)
         }
     }
 }
@@ -266,6 +266,7 @@ opengui() {
     mygui.AddButton("x200 y+40 w80", m.apply)
         .OnEvent("Click", (*) => (
             gvalues := mygui.Submit(false)
+            , gvalues.AC--, gvalues.DC--
             , applyacdc(gvalues, curlid)
             , applyupdowns(gvalues, curvideo, "video")
             , applyupdowns(gvalues, curstand, "stand")
@@ -275,6 +276,7 @@ opengui() {
     mygui.AddButton("yp w80", m.ok)
         .OnEvent("Click", (*) => (
             gvalues := mygui.Submit(false)
+            , gvalues.AC--, gvalues.DC--
             , applyacdc(gvalues, curlid)
             , applyupdowns(gvalues, curvideo, "video")
             , applyupdowns(gvalues, curstand, "stand")
