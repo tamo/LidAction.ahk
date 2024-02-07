@@ -141,7 +141,9 @@ showmenu(wparam, lparam, *) {
     curhiber := getcurvalues(guids.scheme_current, guids.sub_sleep, guids.hibernateidle)
 
     mymenu := Menu()
-    for (acdcindex, acdc in acdcs) {
+    acdcboth := acdcs.Clone()
+    acdcboth.Push("Both")
+    for (acdcindex, acdc in acdcboth) {
         if (acdcindex < 3) {
             mymenu.Add(
                 idlename(m.videoidle, m.acdcs[acdcindex], curvideo[acdcindex])
