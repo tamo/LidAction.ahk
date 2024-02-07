@@ -3,7 +3,7 @@
 #Warn
 
 ;@Ahk2Exe-SetName        LidAction.ahk
-;@Ahk2Exe-SetVersion     0.2
+;@Ahk2Exe-SetVersion     0.2.1
 ;@Ahk2Exe-SetDescription LidAction.ahk - powercfg wrapper
 
 ; https://www.autohotkey.com/boards/viewtopic.php?p=485503#p485503
@@ -87,7 +87,7 @@ getguid(line) {
     return guid[1]
 }
 
-; returns a map (1: ACValue, 2: DCValue, 3: BothValue or -1, guid*: guid)
+; returns an array-like map (1: ACValue, 2: DCValue, 3: BothValue or -1, guid*: guid)
 ; admin priv is not needed here
 getcurvalues(guid1, guid2, guid3, max := 0xffffffff) {
     global acdcs
@@ -171,11 +171,12 @@ showmenu(wparam, lparam, *) {
             itemname := Format("{} {}", m.acdcs[acdcindex], action)
             mymenu.Add(
                 itemname
-                , applyacdc.Bind({
-                    ; bitwise-and for the "both" (acdcindex=3) case
-                    AC: (acdcindex & 1 ? actionindex : 0) -1
-                    , DC: (acdcindex & 2 ? actionindex : 0) -1
-                }
+                , applyacdc.Bind(
+                    {
+                        ; bitwise-and for the "both" (acdcindex=3) case
+                        AC: (acdcindex & 1 ? actionindex : 0) -1
+                        , DC: (acdcindex & 2 ? actionindex : 0) -1
+                    }
                     , curlid
                 )
             )
@@ -219,25 +220,25 @@ disableall(all) {
 }
 
 ; can be called from menu, so the last parameter is a star
-applyacdc(gvalues, c, *) {
+applyacdc(gvalues, cvmap, *) {
     global acdcs
 
-    if (c = "NOENTRY") {
+    if (cvmap = "NOENTRY") {
         return
     }
     for (acdcindex, acdc in acdcs) {
-        if (gvalues.%acdc% >= 0) {
-            applysetting(acdc, c, gvalues.%acdc%)
+        if (gvalues.%(acdc)% >= 0) {
+            applysetting(acdc, cvmap, gvalues.%(acdc)%)
         }
     }
 }
 
-applysetting(acdc, c, value, *) {
+applysetting(acdc, cvmap, value, *) {
     cmd := Format(
         "cmd.exe /c powercfg /set{}valueindex {} {} {} {}"
-        , acdc, c["guid1"], c["guid2"], c["guid3"], value
+        , acdc, cvmap["guid1"], cvmap["guid2"], cvmap["guid3"], value
     )
-    setactive(cmd, c["guid1"])
+    setactive(cmd, cvmap["guid1"])
 }
 
 setactive(cmd, scheme) {
@@ -286,20 +287,20 @@ opengui() {
     mygui.Show()
 }
 
-applyupdowns(gvalues, c, cname) {
+applyupdowns(gvalues, cvmap, cvname) {
     global acdcs
 
     data := {}
     for (acdcindex, acdc in acdcs) {
         s := 0
-        for (k, v in Map(
+        for (dhm, multi in Map(
             "d", 24 * 60 * 60
             , "h", 60 * 60
             , "m", 60
         )) {
-            s += gvalues.%acdc%%cname%%k% * v
+            s += gvalues.%(acdc)%%(cvname)%%(dhm)% * multi
         }
-        applysetting(acdc, c, s)
+        applysetting(acdc, cvmap, s)
     }
 }
 
@@ -336,17 +337,19 @@ addradiogroups(mygui) {
     return groups
 }
 
-addedit(mygui, x, o, acdc, c) {
+addedit(mygui, x, idles, acdc, cvname) {
     global m
 
     mygui.AddEdit(Format("yp x{} w40 right", x))
-    o.%acdc%%c%d := mygui.AddUpDown(Format("left range0-99 v{}{}d", acdc, c))
+    idles.%(acdc)%%(cvname)%d := mygui.AddUpDown(Format("left range0-99 v{}{}d", acdc, cvname))
     mygui.AddText("yp", m.days)
+
     mygui.AddEdit("yp w40 right")
-    o.%acdc%%c%h := mygui.AddUpDown(Format("left range0-23 v{}{}h", acdc, c))
+    idles.%(acdc)%%(cvname)%h := mygui.AddUpDown(Format("left range0-23 v{}{}h", acdc, cvname))
     mygui.AddText("yp", m.hours)
+
     mygui.AddEdit("yp w40 right")
-    o.%acdc%%c%m := mygui.AddUpDown(Format("left range0-59 v{}{}m", acdc, c))
+    idles.%(acdc)%%(cvname)%m := mygui.AddUpDown(Format("left range0-59 v{}{}m", acdc, cvname))
     mygui.AddText("yp", m.minutes)
 }
 
@@ -361,11 +364,11 @@ updategui(radiogroups, guids, &curlid, &curvideo, &curstand, &curhiber) {
     o := radiogroups[3]
 
     for (acdcindex, acdc in acdcs) {
-        for (c in ["video", "stand", "hiber"]) {
-            dhm := getdhm(cur%c%[acdcindex])
-            o.%acdc%%c%d.Value := dhm.d
-            o.%acdc%%c%h.Value := dhm.h
-            o.%acdc%%c%m.Value := dhm.m
+        for (cvname in ["video", "stand", "hiber"]) {
+            dhm := getdhm(cur%(cvname)%[acdcindex])
+            o.%(acdc)%%(cvname)%d.Value := dhm.d
+            o.%(acdc)%%(cvname)%h.Value := dhm.h
+            o.%(acdc)%%(cvname)%m.Value := dhm.m
         }
         for (actionindex, action in m.actions) {
             radiogroups[acdcindex][actionindex].Value := 0
