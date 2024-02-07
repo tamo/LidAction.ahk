@@ -103,16 +103,20 @@ getcurvalues(guid1, guid2, guid3, max := 0xffffffff) {
         , "guid3", guid3
     )
     for (acdcindex, acdc in acdcs) {
-        current[acdcindex] := RegRead(regpath, acdc . "SettingIndex")
-        if (current[acdcindex] < 0 or max < current[acdcindex]) {
+        regval := RegRead(regpath, acdc . "SettingIndex", "NOENTRY")
+        if (regval = "NOENTRY") {
+            return regval
+        }
+        if (regval < 0 or max < regval) {
             MsgBox(
                 Format(
                     "{}SettingIndex out of range: {}`r`n{}/{}/{}"
-                    , acdc, current[acdcindex], guid1, guid2, guid3
+                    , acdc, regval, guid1, guid2, guid3
                 )
             )
             ExitApp()
         }
+        current[acdcindex] := regval
     }
     current[3] := (current[1] = current[2] ? current[1] : -1)
     return current
@@ -152,13 +156,15 @@ showmenu(wparam, lparam, *) {
                 idlename(m.hibernateidle, acdc, curhiber[acdcindex])
                 , idlemenu(acdcindex, curhiber)
             )
-            mymenu.Add()
         } else {
             mymenu.Add(m.exit, (*) => ExitApp(), "Break")
             mymenu.Add(m.allnever, (*) => disableall([curlid, curvideo, curstand, curhiber]))
             mymenu.Add(m.progname, (*) => opengui()), mymenu.Default := m.progname
-            mymenu.Add()
         }
+        if (curlid = "NOENTRY") {
+            continue
+        }
+        mymenu.Add()
         for (actionindex, action in m.actions) {
             itemname := Format("{} {}", acdc, action)
             mymenu.Add(
@@ -214,6 +220,9 @@ disableall(all) {
 applyacdc(gvalues, c, *) {
     global acdcs
 
+    if (c = "NOENTRY") {
+        return
+    }
     for (acdcindex, acdc in acdcs) {
         if (gvalues.%acdc%) {
             applysetting(acdcindex, c, gvalues.%acdc% - 1)
@@ -350,13 +359,22 @@ updategui(radiogroups, guids, &curlid, &curvideo, &curstand, &curhiber) {
     o := radiogroups[3]
 
     for (acdcindex, acdc in acdcs) {
-        radiogroups[acdcindex][curlid[acdcindex] + 1].Value := 1
         for (c in ["video", "stand", "hiber"]) {
             dhm := getdhm(cur%c%[acdcindex])
             o.%acdc%%c%d.Value := dhm.d
             o.%acdc%%c%h.Value := dhm.h
             o.%acdc%%c%m.Value := dhm.m
         }
+        for (actionindex, action in m.actions) {
+            radiogroups[acdcindex][actionindex].Value := 0
+        }
+        if (curlid = "NOENTRY") {
+            for (actionindex, action in m.actions) {
+                radiogroups[acdcindex][actionindex].Enabled := false
+            }
+            continue
+        }
+        radiogroups[acdcindex][curlid[acdcindex] + 1].Value := 1
     }
 }
 
