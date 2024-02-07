@@ -289,7 +289,7 @@ applyupdowns(gvalues, c, cname) {
 
     data := {}
     for (acdcindex, acdc in acdcs) {
-        s := 1
+        s := 0
         for (k, v in Map(
             "d", 24 * 60 * 60
             , "h", 60 * 60
