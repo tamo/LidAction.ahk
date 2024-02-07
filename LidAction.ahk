@@ -124,7 +124,7 @@ getcurvalues(guid1, guid2, guid3, max := 0xffffffff) {
 
 ; on tray icon events
 showmenu(wparam, lparam, *) {
-    global triggers, m
+    global triggers, acdcs, m
 
     if (lparam = 0x203) { ; double-click
         opengui()
@@ -141,20 +141,20 @@ showmenu(wparam, lparam, *) {
     curhiber := getcurvalues(guids.scheme_current, guids.sub_sleep, guids.hibernateidle)
 
     mymenu := Menu()
-    for (acdcindex, acdc in m.acdcs) {
+    for (acdcindex, acdc in acdcs) {
         if (acdcindex < 3) {
             mymenu.Add(
-                idlename(m.videoidle, acdc, curvideo[acdcindex])
-                , idlemenu(acdcindex, curvideo)
+                idlename(m.videoidle, m.acdcs[acdcindex], curvideo[acdcindex])
+                , idlemenu(acdc, curvideo)
                 , "Break"
             )
             mymenu.Add(
-                idlename(m.standbyidle, acdc, curstand[acdcindex])
-                , idlemenu(acdcindex, curstand)
+                idlename(m.standbyidle, m.acdcs[acdcindex], curstand[acdcindex])
+                , idlemenu(acdc, curstand)
             )
             mymenu.Add(
-                idlename(m.hibernateidle, acdc, curhiber[acdcindex])
-                , idlemenu(acdcindex, curhiber)
+                idlename(m.hibernateidle, m.acdcs[acdcindex], curhiber[acdcindex])
+                , idlemenu(acdc, curhiber)
             )
         } else {
             mymenu.Add(m.exit, (*) => ExitApp(), "Break")
@@ -166,7 +166,7 @@ showmenu(wparam, lparam, *) {
         }
         mymenu.Add()
         for (actionindex, action in m.actions) {
-            itemname := Format("{} {}", acdc, action)
+            itemname := Format("{} {}", m.acdcs[acdcindex], action)
             mymenu.Add(
                 itemname
                 , applyacdc.Bind({
@@ -191,7 +191,7 @@ idlename(fmt, acdc, sec) {
     return Format(fmt, acdc, Floor(sec / 3600), Round(Mod(sec, 3600) / 60))
 }
 
-idlemenu(acdcindex, current) {
+idlemenu(acdc, current) {
     global m
 
     submenu := Menu()
@@ -204,7 +204,7 @@ idlemenu(acdcindex, current) {
     }
     for (len in lens) {
         submenu.Add(len[1], applysetting.Bind(
-            acdcindex, current, len[2]
+            acdc, current, len[2]
         ))
     }
     return submenu
@@ -225,17 +225,15 @@ applyacdc(gvalues, c, *) {
     }
     for (acdcindex, acdc in acdcs) {
         if (gvalues.%acdc% >= 0) {
-            applysetting(acdcindex, c, gvalues.%acdc%)
+            applysetting(acdc, c, gvalues.%acdc%)
         }
     }
 }
 
-applysetting(acdcindex, c, value, *) {
-    global acdcs
-
+applysetting(acdc, c, value, *) {
     cmd := Format(
         "cmd.exe /c powercfg /set{}valueindex {} {} {} {}"
-        , acdcs[acdcindex], c["guid1"], c["guid2"], c["guid3"], value
+        , acdc, c["guid1"], c["guid2"], c["guid3"], value
     )
     setactive(cmd, c["guid1"])
 }
@@ -299,7 +297,7 @@ applyupdowns(gvalues, c, cname) {
         )) {
             s += gvalues.%acdc%%cname%%k% * v
         }
-        applysetting(acdcindex, c, s)
+        applysetting(acdc, c, s)
     }
 }
 
