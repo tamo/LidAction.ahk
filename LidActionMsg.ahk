@@ -4,9 +4,9 @@ messages := {
         acdcs: ["AC⚡", "DC🔋", "Both"]
         , actions: ["Nothing", "Sleep", "Hibernate", "Shutdown"]
         , vidoff: "VideoOff"
-        , videoidle: "{}VidOff in {}h {}m"
-        , standbyidle: "{}Sleep in {}h {}m"
-        , hibernateidle: "{}Hibern in {}h {}m"
+        , videoidlefmt: "{}VidOff in {}h {}m"
+        , standidlefmt: "{}Sleep in {}h {}m"
+        , hiberidlefmt: "{}Hibern in {}h {}m"
         , never: "Never"
         , minutesfmt: "{}m"
         , hoursfmt: "{}h"
@@ -23,9 +23,9 @@ messages := {
         acdcs: ["電源あり", "バッテリ", "両方とも"]
         , actions: ["何もしない", "スリープ", "休止", "シャットダウン"]
         , vidoff: "画面オフ"
-        , videoidle: "{}画面オフ{}時間{}分"
-        , standbyidle: "{}スリープ{}時間{}分"
-        , hibernateidle: "{}休止{}時間{}分"
+        , videoidlefmt: "{}画面オフ{}時間{}分"
+        , standidlefmt: "{}スリープ{}時間{}分"
+        , hiberidlefmt: "{}休止{}時間{}分"
         , never: "なし"
         , minutesfmt: "{}分"
         , hoursfmt: "{}時間"
