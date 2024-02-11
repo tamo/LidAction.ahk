@@ -123,6 +123,8 @@ updatecurrentvalue(idleobjs, cvname) {
 }
 
 initidles() {
+    global guids
+
     return {
         entries: ["lid", "video", "stand", "hiber"]
         , lid: {
@@ -292,13 +294,13 @@ applysetting(acdc, cv, value, *) {
 }
 
 opengui() {
-    global m, guids
+    global m
 
     mygui := Gui(, m.progname)
     radiogroups := addradiogroups(mygui)
 
     idleobjs := initidles()
-    updategui(radiogroups, guids, idleobjs)
+    updategui(radiogroups, idleobjs)
 
     mygui.AddButton("x200 y+40 w80", m.apply)
         .OnEvent("Click", (*) => (
@@ -306,7 +308,7 @@ opengui() {
             , gvalues.AC--, gvalues.DC--
             , idleobjs.HasOwnProp("lid") && applyacdc(gvalues, idleobjs.lid)
             , applyupdowns(gvalues, idleobjs)
-            , updategui(radiogroups, guids, idleobjs)
+            , updategui(radiogroups, idleobjs)
         ))
     mygui.AddButton("yp w80", m.ok)
         .OnEvent("Click", (*) => (
@@ -387,7 +389,7 @@ addedit(mygui, x, dhms, acdc, cvname) {
 }
 
 ; updates idleobjs, checks radios, and inputs edits accordingly
-updategui(radiogroups, guids, idleobjs) {
+updategui(radiogroups, idleobjs) {
     global acdcs
 
     for (cvname in idleobjs.entries.Clone()) {
