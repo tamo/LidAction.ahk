@@ -4,7 +4,10 @@ class PowercfgGUIDs {
     __New() {
         buttonslines := getpcqlines("scheme_current sub_buttons", 4)
         scheme_current := getguid(buttonslines[1])
-        sub_buttons := getguid(buttonslines[3])
+        ; some schemes have no alias
+        current_has_alias := RegExMatch(buttonslines[2], " SCHEME_[A-Z]") ? 1 : 0
+        ; sub_buttons := "4f971e89-eebd-4455-a8de-9e59040e7347"
+        sub_buttons := getguid(buttonslines[2 + current_has_alias])
         ; https://learn.microsoft.com/windows-hardware/customize/power-settings/power-button-and-lid-settings-lid-switch-close-action
         lidaction := "5ca83367-6e45-459f-a27b-476b1d01c936" ; not available from powercfg
 
@@ -16,8 +19,10 @@ class PowercfgGUIDs {
         }
 
         videolines := getpcqlines("scheme_current sub_video videoidle", 12)
-        sub_video := getguid(videolines[3])
-        videoidle := getguid(videolines[5])
+        ; sub_video := "7516b95f-f776-4464-8c53-06167f40cc99"
+        sub_video := getguid(videolines[2 + current_has_alias])
+        ; videoidle := "3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e"
+        videoidle := getguid(videolines[4 + current_has_alias])
 
         this.video := {
             guid1: scheme_current
@@ -27,8 +32,10 @@ class PowercfgGUIDs {
         }
 
         sleeplines := getpcqlines("scheme_current sub_sleep standbyidle", 12)
-        sub_sleep := getguid(sleeplines[3])
-        standbyidle := getguid(sleeplines[5])
+        ; sub_sleep := "238c9fa8-0aad-41ed-83f4-97be242c8f20"
+        sub_sleep := getguid(sleeplines[2 + current_has_alias])
+        ; standbyidle := "29f6c1db-86da-48c5-9fdb-f2b67b1f44da"
+        standbyidle := getguid(sleeplines[4 + current_has_alias])
 
         this.stand := {
             guid1: scheme_current
@@ -38,7 +45,8 @@ class PowercfgGUIDs {
         }
 
         hibernatelines := getpcqlines("scheme_current sub_sleep hibernateidle", 12)
-        hibernateidle := getguid(hibernatelines[5])
+        ; hibernateidle := "9d7815a6-7ee4-497e-8888-515a05f02364"
+        hibernateidle := getguid(hibernatelines[4 + current_has_alias])
         this.hiber := {
             guid1: scheme_current
             , guid2: sub_sleep
