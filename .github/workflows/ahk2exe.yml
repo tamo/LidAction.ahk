@@ -25,13 +25,13 @@ jobs:
       run: |
         rm LidActionCfg.ahk
         mv LidActionCfg-ja-hover.ahk LidActionCfg.ahk
+        cp LidAction.ahk LidAction-ja-hover.ahk
 
     - name: Ahk2Exe (64bit) (ja) (hover)
       uses: tamo/action-Ahk2Exe@main
       with:
         base: AutoHotkey64.exe
-        src: LidAction.ahk
-        opt: /out LidAction-ja-hover.exe
+        src: LidAction-ja-hover.ahk
 
     - run: ls LidAction-ja-hover.exe
 
